@@ -1,0 +1,85 @@
+{
+  "project_info": {
+    "project_number": "737032474536",
+    "firebase_url": "https://sensores-humanos.firebaseio.com",
+    "project_id": "sensores-humanos",
+    "storage_bucket": "sensores-humanos.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737032474536:android:dab3f3f174ce222ad0979d",
+        "android_client_info": {
+          "package_name": "com.example.sensoreshumanos"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "737032474536-1vivnsbb0rfkjv7b4leght4aiben4us6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sensoreshumanos",
+            "certificate_hash": "f85435bc1300de80553039aa82eb27f50afd561d"
+          }
+        },
+        {
+          "client_id": "737032474536-73i3p20sm9m6hfaa8u1hbe22eimhcn0j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgIMLxfuV84Qj1G26g6Pdyd3-rtcLnoqc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "737032474536-73i3p20sm9m6hfaa8u1hbe22eimhcn0j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737032474536:android:bf227ec6a01ce572d0979d",
+        "android_client_info": {
+          "package_name": "com.example.smartsensors"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "737032474536-8e1etr90i9ngtmiougdmreist42g6m2d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.smartsensors",
+            "certificate_hash": "f85435bc1300de80553039aa82eb27f50afd561d"
+          }
+        },
+        {
+          "client_id": "737032474536-73i3p20sm9m6hfaa8u1hbe22eimhcn0j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgIMLxfuV84Qj1G26g6Pdyd3-rtcLnoqc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "737032474536-73i3p20sm9m6hfaa8u1hbe22eimhcn0j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
