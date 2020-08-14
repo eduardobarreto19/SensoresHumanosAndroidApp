@@ -58,7 +58,7 @@ public class SignUpActivity extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                             } else {
                                 Map<String, Object> dataRecord = DeltaValuesRegistry();
-                                db.collection("users").document(mAuth.getCurrentUser().getEmail()).set(dataRecord)
+                                db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).set(dataRecord)
                                         .addOnSuccessListener(new OnSuccessListener<Void>() {
                                             @Override
                                             public void onSuccess(Void aVoid) {
@@ -82,18 +82,15 @@ public class SignUpActivity extends AppCompatActivity {
 
     private Map<String, Object> DeltaValuesRegistry(){
         Map<String, Object> dataRecord = new HashMap<>();
-        dataRecord.put("deltaLat", 0.0005f);
-        dataRecord.put("deltaLong", 0.0005f);
-        dataRecord.put("deltaAltitude", 10.0f);
-        dataRecord.put("deltaDistance", 10.0f);
-        dataRecord.put("deltaAccelerometerX", 10.0f);
-        dataRecord.put("deltaAccelerometerY", 10.0f);
-        dataRecord.put("deltaAccelerometerZ", 10.0f);
-        dataRecord.put("deltaAmbientTemperature", 37.3f);
-        dataRecord.put("deltaLight", 4000.0f);
-        dataRecord.put("deltaPressure", 110.0f);
-        dataRecord.put("deltaRelativeHumidity", 10.0f);
-        dataRecord.put("deltaProximity", 1.0f);
+        dataRecord.put("delta_distance", 10.0D);
+        dataRecord.put("delta_accelerometer_x", 10.0D);
+        dataRecord.put("delta_accelerometer_y", 10.0D);
+        dataRecord.put("delta_accelerometer_z", 10.0D);
+        dataRecord.put("delta_ambient_temperature", 37.3D);
+        dataRecord.put("delta_light", 4000.0D);
+        dataRecord.put("delta_pressure", 110.0D);
+        dataRecord.put("delta_relativeHumidity", 10.0D);
+        dataRecord.put("delta_proximity", 1.0D);
         return dataRecord;
     }
 }

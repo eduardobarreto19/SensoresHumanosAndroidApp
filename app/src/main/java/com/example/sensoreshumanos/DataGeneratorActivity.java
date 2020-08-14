@@ -39,19 +39,18 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.SetOptions;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class DataGeneratorActivity extends AppCompatActivity {
 
@@ -63,20 +62,35 @@ public class DataGeneratorActivity extends AppCompatActivity {
     private Sensor mAccelerometer, mAmbientTemperature, mLight, mPressure, mRelativeHumidity, mProximity;
     private SensorEventListener mAccelerometerListener, mAmbientTemperatureListener, mLightListener, mPressureListener, mRelativeHumidityListener, mProximityListener;
 
-    TextView latitude, longitude, altitude, distance, accelerometerX, accelerometerY, accelerometerZ, ambientTemperature, light, pressure, relativeHumidity, proximity;
-    float deltaAccelerometerX, deltaAccelerometerY, deltaAccelerometerZ, deltaAmbientTemperature, deltaLight, deltaPressure, deltaRelativeHumidity, deltaProximity;
-    double deltaLat, deltaLong, deltaAltitude, deltaDistance;
-    float lastAccelerometerX = 0.0f , lastAccelerometerY = 0.0f , lastAccelerometerZ = 0.0f , lastAmbientTemperature = 0.0f , lastLight = 0.0f , lastPressure = 0.0f , lastRelativeHumidity = 0.0f , lastProximity = 0.0f ;
-    double lastLat = 0.0 , lastLong = 0.0 , lastAltitude = 0.0 , lastDistance = 0.0;
+    TextView latitude, longitude, distance, accelerometerX, accelerometerY, accelerometerZ, ambientTemperature, light, pressure, relativeHumidity, proximity;
+    double deltaAccelerometerX, deltaAccelerometerY, deltaAccelerometerZ, deltaAmbientTemperature, deltaLight, deltaPressure, deltaRelativeHumidity, deltaProximity;
+    double deltaDistance;
+    double lastAccelerometerX = 0.0f , lastAccelerometerY = 0.0f , lastAccelerometerZ = 0.0f , lastAmbientTemperature = 0.0f , lastLight = 0.0f , lastPressure = 0.0f , lastRelativeHumidity = 0.0f , lastProximity = 0.0f ;
+    double lastDistanceToHospital = 0.0;
+    static final String OUT_OF_THE_CAMPUS = "Fuera del campus";
+    static final String INSIDE_THE_CAMPUS = "Campus universitario";
+    static final String INSIDE_BARON = "Edificio Baron";
+    static final String INSIDE_GIRALDO = "Edificio Giraldo";
+    static final String INSIDE_LENGUAS = "Edificio Lenguas";
+    String lastKnownArea = "";
+    GeoPoint lastLocation = new GeoPoint(0,0);
     static final int PERMISSION_LOCATION_ID = 5;
     static final int REQUEST_CHECK_SETTINGS = 6;
-    double latLabs = 4.627283;
-    double longLabs = -74.064375;
+    static final float DISTANCE_UNIVERSITY = 250.0f;
+    static final float DISTANCE_BUILDING = 30.0f;
+    double latHospital = 4.628462, latBaron = 4.6265, latLenguas = 4.6287, latGiraldo = 4.6267;
+    double longHospital = -74.063785, longBaron = -74.0638, longLenguas = -74.0628, longGiraldo = -74.0648;
     FusedLocationProviderClient mFusedLocationClient;
     LocationRequest mLocationRequest;
     LocationCallback mLocationCallback;
 
     FirebaseFirestore db;
+
+    FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+    FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
+            .setTimestampsInSnapshotsEnabled(true)
+            .build();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,12 +98,13 @@ public class DataGeneratorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_data_generator_acitivity);
 
         db = FirebaseFirestore.getInstance();
+        db.setFirestoreSettings(settings);
+
         mAuth = FirebaseAuth.getInstance();
 
         logout = findViewById(R.id.logout_button);
         latitude = findViewById(R.id.latitude);
         longitude = findViewById(R.id.longitude);
-        altitude = findViewById(R.id.altitude);
         distance = findViewById(R.id.distance);
         accelerometerX = findViewById(R.id.accelerometerX);
         accelerometerY = findViewById(R.id.accelerometerY);
@@ -103,7 +118,7 @@ public class DataGeneratorActivity extends AppCompatActivity {
         InitializeDeltas();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mLight = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
         mAmbientTemperature = mSensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
         mPressure = mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
@@ -112,8 +127,7 @@ public class DataGeneratorActivity extends AppCompatActivity {
 
         mAccelerometerListener = new SensorEventListener() {
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
                 accelerometerX.setText(String.valueOf(event.values[0]));
                 accelerometerY.setText(String.valueOf(event.values[1]));
                 accelerometerZ.setText(String.valueOf(event.values[2]));
@@ -121,8 +135,8 @@ public class DataGeneratorActivity extends AppCompatActivity {
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("accelerometerX")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("AccelerometerX")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -142,8 +156,8 @@ public class DataGeneratorActivity extends AppCompatActivity {
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[1]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("accelerometerY")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("AccelerometerY")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -163,8 +177,8 @@ public class DataGeneratorActivity extends AppCompatActivity {
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[2]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("accelerometerZ")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("AccelerometerZ")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -191,15 +205,15 @@ public class DataGeneratorActivity extends AppCompatActivity {
         mLightListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
+
                 light.setText(String.valueOf(event.values[0]));
                 if(Math.abs(event.values[0] - lastLight) > deltaLight)
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("light")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("Light")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -226,15 +240,14 @@ public class DataGeneratorActivity extends AppCompatActivity {
         mAmbientTemperatureListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
                 ambientTemperature.setText(String.valueOf(event.values[0]));
                 if(Math.abs(event.values[0] - lastAmbientTemperature) > deltaAmbientTemperature)
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("ambientTemperature")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("AmbientTemperature")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -260,15 +273,15 @@ public class DataGeneratorActivity extends AppCompatActivity {
 
         mPressureListener = new SensorEventListener() {
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
+
                 pressure.setText(String.valueOf(event.values[0]));
                 if(Math.abs(event.values[0] - lastPressure) > deltaPressure)
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("pressure")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("Pressure")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -294,15 +307,15 @@ public class DataGeneratorActivity extends AppCompatActivity {
 
         mRelativeHumidityListener = new SensorEventListener() {
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
+
                 relativeHumidity.setText(String.valueOf(event.values[0]));
                 if(Math.abs(event.values[0] - lastRelativeHumidity) > deltaRelativeHumidity)
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("relativeHumidity")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("RelativeHumidity")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -328,15 +341,15 @@ public class DataGeneratorActivity extends AppCompatActivity {
 
         mProximityListener = new SensorEventListener() {
             public void onSensorChanged(SensorEvent event) {
-                Long tsLong = System.currentTimeMillis()/1000;
-                String ts = tsLong.toString();
+                Timestamp ts = new Timestamp(new Date());
+
                 proximity.setText(String.valueOf(event.values[0]));
                 if(Math.abs(event.values[0] - lastProximity) > deltaProximity)
                 {
                     Map<String, Object> dataRecord = new HashMap<>();
                     dataRecord.put("data", event.values[0]);
-                    dataRecord.put("timestamp", ts);
-                    db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("proximity")
+                    dataRecord.put("created_at", ts);
+                    db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("Proximity")
                             .add(dataRecord)
                             .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                 @Override
@@ -371,20 +384,46 @@ public class DataGeneratorActivity extends AppCompatActivity {
                 if (location != null) {
                     latitude.setText(String.valueOf(location.getLatitude()));
                     longitude.setText(String.valueOf(location.getLongitude()));
-                    altitude.setText(String.valueOf(location.getAltitude()));
-                    float resultsDistance[] = new float[3];
-                    Location.distanceBetween(latLabs, longLabs, location.getLatitude(), location.getLongitude(), resultsDistance);
-                    distance.setText(String.valueOf(resultsDistance[0]));
 
-                    Long tsLong = System.currentTimeMillis()/1000;
-                    String ts = tsLong.toString();
-                    if(Math.abs(location.getLatitude() - lastLat) > deltaLat)
+                    float resultsDistanceHospital[] = new float[3];
+                    Location.distanceBetween(latHospital, longHospital, location.getLatitude(), location.getLongitude(), resultsDistanceHospital);
+                    float distanceToHospital = resultsDistanceHospital[0];
+                    distance.setText(String.valueOf(distanceToHospital));
+
+                    float resultsDistance[] = new float[3];
+                    Location.distanceBetween(lastLocation.getLatitude(), lastLocation.getLongitude(), location.getLatitude(), location.getLongitude(), resultsDistance);
+                    float distanceToLastPoint = resultsDistance[0];
+
+                    String area = getArea(location);
+                    Log.d("DB", "Area: " + area);
+                    Timestamp ts = new Timestamp(new Date());
+                    if(!lastKnownArea.equals(area))
                     {
-                        Map<String, Object> dataRecord = new HashMap<>();
-                        dataRecord.put("data", location.getLatitude());
-                        dataRecord.put("timestamp", ts);
-                        db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("latitude")
-                                .add(dataRecord)
+                        Map<String, Object> lastAreaRecord = new HashMap<>();
+                        lastAreaRecord.put("last_area", area);
+                        lastAreaRecord.put("last_area_at",ts);
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("morado").document("capa morada")
+                                .collection("users").document(mAuth.getCurrentUser().getEmail()).set(lastAreaRecord, SetOptions.merge())
+                                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void aVoid) {
+                                        Log.d("DB", "DocumentSnapshot successfully written!");
+                                    }
+                                })
+                                .addOnFailureListener(new OnFailureListener() {
+                                    @Override
+                                    public void onFailure(@NonNull Exception e) {
+                                        Log.w("DB", "Error writing document", e);
+                                    }
+                                });
+
+                        // AREA EVENTS
+                        Map<String, Object> AreaRecord = new HashMap<>();
+                        AreaRecord.put("area_event", area);
+                        AreaRecord.put("area_event_at",ts);
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("morado")
+                                .document("capa morada").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("AreaEvents")
+                                .add(AreaRecord)
                                 .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                     @Override
                                     public void onSuccess(DocumentReference documentReference) {
@@ -397,14 +436,17 @@ public class DataGeneratorActivity extends AppCompatActivity {
                                         Log.w("DB", "Error adding document", e);
                                     }
                                 });
-                        lastLat = location.getLatitude();
+                        lastKnownArea = area;
                     }
-                    if(Math.abs(location.getLongitude() - lastLong) > deltaLong)
+
+
+                    if(Math.abs(distanceToLastPoint) > deltaDistance)
                     {
                         Map<String, Object> dataRecord = new HashMap<>();
-                        dataRecord.put("data", location.getLongitude());
-                        dataRecord.put("timestamp", ts);
-                        db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("longitude")
+                        GeoPoint geoPoint = new GeoPoint(location.getLatitude(),location.getLongitude());
+                        dataRecord.put("data", geoPoint);
+                        dataRecord.put("created_at", ts);
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("Location")
                                 .add(dataRecord)
                                 .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                     @Override
@@ -418,14 +460,31 @@ public class DataGeneratorActivity extends AppCompatActivity {
                                         Log.w("DB", "Error adding document", e);
                                     }
                                 });
-                        lastLong = location.getLongitude();
+                        lastLocation = geoPoint;
+                        Map<String, Object> lastLocationRecord = new HashMap<>();
+                        lastLocationRecord.put("last_location",lastLocation);
+                        lastLocationRecord.put("last_location_at",ts);
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).set(lastLocationRecord, SetOptions.merge())
+                                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void aVoid) {
+                                        Log.d("DB", "DocumentSnapshot successfully written!");
+                                    }
+                                })
+                                .addOnFailureListener(new OnFailureListener() {
+                                    @Override
+                                    public void onFailure(@NonNull Exception e) {
+                                        Log.w("DB", "Error writing document", e);
+                                    }
+                                });
                     }
-                    if(Math.abs(location.getAltitude() - lastAltitude) > deltaAltitude)
+
+                    if(Math.abs(distanceToHospital - lastDistanceToHospital) > deltaDistance)
                     {
                         Map<String, Object> dataRecord = new HashMap<>();
-                        dataRecord.put("data", location.getAltitude());
-                        dataRecord.put("timestamp", ts);
-                        db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("altitude")
+                        dataRecord.put("data", distanceToHospital);
+                        dataRecord.put("created_at", ts);
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).collection("DistanceToHospital")
                                 .add(dataRecord)
                                 .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                                     @Override
@@ -439,28 +498,7 @@ public class DataGeneratorActivity extends AppCompatActivity {
                                         Log.w("DB", "Error adding document", e);
                                     }
                                 });
-                        lastAltitude = location.getAltitude();
-                    }
-                    if(Math.abs(resultsDistance[0] - lastDistance) > deltaDistance)
-                    {
-                        Map<String, Object> dataRecord = new HashMap<>();
-                        dataRecord.put("data", resultsDistance[0]);
-                        dataRecord.put("timestamp", ts);
-                        db.collection("users").document(mAuth.getCurrentUser().getEmail()).collection("distance")
-                                .add(dataRecord)
-                                .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
-                                    @Override
-                                    public void onSuccess(DocumentReference documentReference) {
-                                        Log.d("DB", "DocumentSnapshot added with ID: " + documentReference.getId() + " added data: " + "recordData");
-                                    }
-                                })
-                                .addOnFailureListener(new OnFailureListener() {
-                                    @Override
-                                    public void onFailure(@NonNull Exception e) {
-                                        Log.w("DB", "Error adding document", e);
-                                    }
-                                });
-                        lastDistance = resultsDistance[0];
+                        lastDistanceToHospital = distanceToHospital;
                     }
                 }
             }
@@ -479,8 +517,53 @@ public class DataGeneratorActivity extends AppCompatActivity {
         });
     }
 
+
+    private String getArea(Location location){
+
+        float resultsDistanceHospital[] = new float[3];
+        Location.distanceBetween(latHospital, longHospital, location.getLatitude(), location.getLongitude(), resultsDistanceHospital);
+        float distanceToHospital = resultsDistanceHospital[0];
+
+        float resultsDistanceBaron[] = new float[3];
+        Location.distanceBetween(latBaron, longBaron, location.getLatitude(), location.getLongitude(), resultsDistanceBaron);
+        float distanceToBaron = resultsDistanceBaron[0];
+
+        float resultsDistanceGiraldo[] = new float[3];
+        Location.distanceBetween(latGiraldo, longGiraldo, location.getLatitude(), location.getLongitude(), resultsDistanceGiraldo);
+        float distanceToGiraldo = resultsDistanceGiraldo[0];
+
+        float resultsDistanceLenguas[] = new float[3];
+        Location.distanceBetween(latLenguas, longLenguas, location.getLatitude(), location.getLongitude(), resultsDistanceLenguas);
+        float distanceToLenguas = resultsDistanceLenguas[0];
+
+        Log.d("DB", "Distance to Hospital: " + distanceToHospital);
+        Log.d("DB", "Distance to Baron: " + distanceToBaron);
+        Log.d("DB", "Distance to Giraldo: " + distanceToGiraldo);
+        Log.d("DB", "Distance to Lenguas: " + distanceToLenguas);
+
+        if(distanceToHospital <= DISTANCE_UNIVERSITY)
+        {
+            if(distanceToBaron <= DISTANCE_BUILDING)
+            {
+                return INSIDE_BARON;
+            }
+
+            if(distanceToGiraldo <= DISTANCE_BUILDING)
+            {
+                return INSIDE_GIRALDO;
+            }
+
+            if(distanceToLenguas <= DISTANCE_BUILDING)
+            {
+                return INSIDE_LENGUAS;
+            }
+            return INSIDE_THE_CAMPUS;
+        }
+        return OUT_OF_THE_CAMPUS;
+    }
+
     private void InitializeDeltas(){
-        DocumentReference docRef = db.collection("users").document(mAuth.getCurrentUser().getEmail());
+        DocumentReference docRef = db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail());
         docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
             @Override
             public void onComplete(@NonNull Task<DocumentSnapshot> task) {
@@ -489,55 +572,53 @@ public class DataGeneratorActivity extends AppCompatActivity {
                     if (document.exists()) {
                         Log.d("DB", "DocumentSnapshot data: " + document.getData());
                         Map<String, Object> refData = document.getData();
-                        deltaLat = (double) refData.get("deltaLat");
-                        deltaLong = (double) refData.get("deltaLong");
-                        deltaAltitude = (double)refData.get("deltaAltitude");
-                        deltaDistance = (double)refData.get("deltaDistance");
-                        deltaAccelerometerX = (float)(double)refData.get("deltaAccelerometerX");
-                        deltaAccelerometerY = (float)(double)refData.get("deltaAccelerometerY");
-                        deltaAccelerometerZ = (float)(double)refData.get("deltaAccelerometerZ");
-                        deltaAmbientTemperature = (float)(double)refData.get("deltaAmbientTemperature");
-                        deltaLight = (float)(double)refData.get("deltaLight");
-                        deltaPressure = (float)(double)refData.get("deltaPressure");
-                        deltaRelativeHumidity = (float)(double)refData.get("deltaRelativeHumidity");
-                        deltaProximity = (float)(double)refData.get("deltaProximity");
+                        deltaDistance = (double)refData.get("delta_distance");
+                        deltaAccelerometerX = (double)refData.get("delta_accelerometer_x");
+                        deltaAccelerometerY = (double)refData.get("delta_accelerometer_y");
+                        deltaAccelerometerZ = (double)refData.get("delta_accelerometer_z");
+                        deltaAmbientTemperature = (double)refData.get("delta_ambient_temperature");
+                        deltaLight = (double)refData.get("delta_light");
+                        deltaPressure = (double)refData.get("delta_pressure");
+                        deltaRelativeHumidity = (double)refData.get("delta_relativeHumidity");
+                        deltaProximity = (double)refData.get("delta_proximity");
 
                     } else {
                         Log.d("DB", "No such document");
+                        Map<String, Object> dataRecord = DeltaValuesRegistry();
+                        db.collection("sensores humanos").document("dispositivos moviles").collection("azul").document("capa azul").collection("users").document(mAuth.getCurrentUser().getEmail()).set(dataRecord)
+                                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                    @Override
+                                    public void onSuccess(Void aVoid) {
+                                        Log.d("DB", "DocumentSnapshot successfully written!");
+                                    }
+                                })
+                                .addOnFailureListener(new OnFailureListener() {
+                                    @Override
+                                    public void onFailure(@NonNull Exception e) {
+                                        Log.w("DB", "Error writing document", e);
+                                    }
+                                });
+                        InitializeDeltas();
                     }
                 } else {
                     Log.d("DB", "get failed with ", task.getException());
                 }
             }
         });
-
-
     }
 
-    private List<Map<String, Object>> RecordToMap(List<List<String>> record){
-        List<Map<String, Object>> recordList = new ArrayList<>();
-        for (List<String> i: record
-        ) {
-            Map<String, Object> recordMap = new HashMap<>();
-            recordMap.put("timestamp", i.get(0));
-            recordMap.put("data", i.get(1));
-            recordList.add(recordMap);
-        }
-        return recordList;
-    }
-
-    private List<Map<String, Object>> RecordToMapXYZ(List<List<String>> record){
-        List<Map<String, Object>> recordList = new ArrayList<>();
-        for (List<String> i: record
-        ) {
-            Map<String, Object> recordMap = new HashMap<>();
-            recordMap.put("timestamp", i.get(0));
-            recordMap.put("data", i.get(1));
-            recordMap.put("data", i.get(2));
-            recordMap.put("data", i.get(3));
-            recordList.add(recordMap);
-        }
-        return recordList;
+    private Map<String, Object> DeltaValuesRegistry(){
+        Map<String, Object> dataRecord = new HashMap<>();
+        dataRecord.put("delta_distance", 10.0D);
+        dataRecord.put("delta_accelerometer_x", 10.0D);
+        dataRecord.put("delta_accelerometer_y", 10.0D);
+        dataRecord.put("delta_accelerometer_z", 10.0D);
+        dataRecord.put("delta_ambient_temperature", 37.3D);
+        dataRecord.put("delta_light", 4000.0D);
+        dataRecord.put("delta_pressure", 110.0D);
+        dataRecord.put("delta_relativeHumidity", 10.0D);
+        dataRecord.put("delta_proximity", 1.0D);
+        return dataRecord;
     }
 
     private LocationRequest createLocationRequest(){
@@ -562,6 +643,18 @@ public class DataGeneratorActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        stopLocationUpdates();
+        mSensorManager.unregisterListener(mAccelerometerListener);
+        mSensorManager.unregisterListener(mLightListener);
+        mSensorManager.unregisterListener(mPressureListener);
+        mSensorManager.unregisterListener(mAmbientTemperatureListener);
+        mSensorManager.unregisterListener(mRelativeHumidityListener);
+        mSensorManager.unregisterListener(mProximityListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
         stopLocationUpdates();
         mSensorManager.unregisterListener(mAccelerometerListener);
         mSensorManager.unregisterListener(mLightListener);

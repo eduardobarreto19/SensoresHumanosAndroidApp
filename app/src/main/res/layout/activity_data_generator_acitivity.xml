@@ -9,30 +9,12 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:gravity="center"
         android:orientation="vertical"
+        android:padding="10dp"
         tools:layout_editor_absoluteX="0dp"
         tools:layout_editor_absoluteY="0dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/altitude_label"
-                android:layout_width="205dp"
-                android:layout_height="match_parent"
-                android:text="  Location-Altitude"
-                android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
-
-            <TextView
-                android:id="@+id/altitude"
-                android:layout_width="205dp"
-                android:layout_height="match_parent"
-                android:text="altitude"
-                android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
-
-        </LinearLayout>
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
@@ -49,7 +31,7 @@
                 android:id="@+id/latitude"
                 android:layout_width="205dp"
                 android:layout_height="match_parent"
-                android:text="altitude"
+                android:text="latitude"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
         </LinearLayout>
@@ -73,6 +55,7 @@
                 android:text="longitude"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
         </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
